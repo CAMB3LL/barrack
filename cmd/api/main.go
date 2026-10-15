@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/CAMB3LL/barrack/internal/database"
+	"github.com/CAMB3LL/barrack/internal/database/management"
 	httptransport "github.com/CAMB3LL/barrack/internal/transport/http"
 )
 
@@ -36,6 +37,13 @@ func run(logger *slog.Logger) error {
 	n, err := strconv.Atoi(port)
 	if err != nil || n < 1 || n > 65535 {
 		return errors.New("PORT must be an integer between 1 and 65535")
+	}
+	environment := os.Getenv("APP_ENV")
+	if err := management.Validate(environment); err != nil {
+		return err
+	}
+	if err := initializeDatabase(ctx, environment, logger); err != nil {
+		return err
 	}
 
 	startupCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -80,4 +88,15 @@ func run(logger *slog.Logger) error {
 		return fmt.Errorf("shutdown HTTP server: %w", err)
 	}
 	return nil
+}
+
+func initializeDatabase(ctx context.Context, environment string, logger *slog.Logger) error {
+	connectCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	db, err := database.OpenSQL(connectCtx)
+	cancel()
+	if err != nil {
+		return err
+	}
+	err = management.Initialize(ctx, db, environment, logger)
+	return errors.Join(err, db.Close())
 }

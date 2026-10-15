@@ -1,0 +1,31 @@
+CREATE TABLE IF NOT EXISTS public.schema_migrations (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE CHECK (btrim(name) <> ''),
+    is_applied BOOLEAN NOT NULL,
+    tstamp TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS public.seed_history (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE CHECK (btrim(name) <> ''),
+    is_applied BOOLEAN NOT NULL,
+    tstamp TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE public.foo (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE FUNCTION public.foo_set_updated_at() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    NEW.updated_at := clock_timestamp();
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER foo_updated_at
+BEFORE UPDATE ON public.foo
+FOR EACH ROW EXECUTE FUNCTION public.foo_set_updated_at();

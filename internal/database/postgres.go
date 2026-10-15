@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"net"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/stdlib"
 )
 
 func connectionString() (string, error) {
@@ -39,8 +41,7 @@ func connectionString() (string, error) {
 	return dsn.String(), nil
 }
 
-// Open creates a pool and verifies connectivity before the HTTP server starts.
-func Open(ctx context.Context) (*pgxpool.Pool, error) {
+func connectionConfig() (*pgxpool.Config, error) {
 	dsn, err := connectionString()
 	if err != nil {
 		return nil, err
@@ -51,6 +52,32 @@ func Open(ctx context.Context) (*pgxpool.Pool, error) {
 		return nil, errors.New("invalid PostgreSQL connection configuration")
 	}
 	config.ConnConfig.ConnectTimeout = 5 * time.Second
+	return config, nil
+}
+
+// OpenSQL opens a short-lived administration pool using the same DB_* settings.
+// Initialization uses one session for its lock and SQL transactions.
+func OpenSQL(ctx context.Context) (*sql.DB, error) {
+	config, err := connectionConfig()
+	if err != nil {
+		return nil, err
+	}
+	db := stdlib.OpenDB(*config.ConnConfig)
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(0)
+	if err := db.PingContext(ctx); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("connect to PostgreSQL for initialization: %w", err)
+	}
+	return db, nil
+}
+
+// Open creates a pool and verifies connectivity before the HTTP server starts.
+func Open(ctx context.Context) (*pgxpool.Pool, error) {
+	config, err := connectionConfig()
+	if err != nil {
+		return nil, err
+	}
 	pool, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		return nil, fmt.Errorf("create PostgreSQL pool: %w", err)
