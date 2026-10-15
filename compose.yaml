@@ -1,0 +1,97 @@
+
+services:
+  db:
+    container_name: postgres
+    image: postgres:17-alpine
+    restart: unless-stopped
+
+    ports:
+      - "127.0.0.1:5432:5432"
+
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Required}
+      POSTGRES_DB: ${POSTGRES_DB:?Required}
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+    networks:
+      - barrack_network
+
+  api-dev:
+    container_name: barrack_api_dev
+    profiles: ["dev"]
+
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+      args:
+        GO_VERSION: ${GO_VERSION:-1.27.2}
+
+    ports:
+      - "${API_BIND_HOST:-127.0.0.1}:${API_PORT:-8080}:8080"
+
+    volumes:
+      - .:/app
+
+    environment: &api_environment
+      APP_ENV: ${APP_ENV:?Required}
+      PORT: "8080"
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_USER: ${POSTGRES_USER:?Required}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Required}
+      DB_NAME: ${POSTGRES_DB:?Required}
+      DB_SSLMODE: disable
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    networks:
+      - barrack_network
+
+  api-prod:
+    container_name: barrack_api
+    profiles: ["prod"]
+
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+      args:
+        GO_VERSION: ${GO_VERSION:-1.27.2}
+
+    restart: unless-stopped
+
+    ports:
+      - "${API_BIND_HOST:-127.0.0.1}:${API_PORT:-8080}:8080"
+
+    environment:
+      <<: *api_environment
+      DB_SSLMODE: ${DB_SSLMODE:-disable}
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    networks:
+      - barrack_network
+
+networks:
+  barrack_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
