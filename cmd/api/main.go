@@ -12,8 +12,10 @@ import (
 	"syscall"
 	"time"
 
+	application "github.com/CAMB3LL/barrack/internal/application/foo"
 	"github.com/CAMB3LL/barrack/internal/database"
 	"github.com/CAMB3LL/barrack/internal/database/management"
+	"github.com/CAMB3LL/barrack/internal/database/repositories"
 	httptransport "github.com/CAMB3LL/barrack/internal/transport/http"
 )
 
@@ -56,7 +58,7 @@ func run(logger *slog.Logger) error {
 
 	server := &http.Server{
 		Addr:              ":" + port,
-		Handler:           httptransport.NewRouter(pool, logger),
+		Handler:           httptransport.NewRouter(pool, logger, application.NewService(repositories.NewFooRepository(pool))),
 		ErrorLog:          slog.NewLogLogger(logger.Handler(), slog.LevelError),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,

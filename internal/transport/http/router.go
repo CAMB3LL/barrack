@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	application "github.com/CAMB3LL/barrack/internal/application/foo"
 	"github.com/CAMB3LL/barrack/internal/transport/http/middleware"
 )
 
@@ -15,8 +16,11 @@ type Pinger interface {
 	Ping(context.Context) error
 }
 
-func NewRouter(db Pinger, logger *slog.Logger) http.Handler {
+func NewRouter(db Pinger, logger *slog.Logger, fooService *application.Service) http.Handler {
 	mux := http.NewServeMux()
+	if fooService != nil {
+		registerFoo(mux, fooService)
+	}
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 		defer cancel()

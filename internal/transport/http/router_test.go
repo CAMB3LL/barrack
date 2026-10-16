@@ -23,7 +23,7 @@ func TestHealthTracksDatabaseAvailability(t *testing.T) {
 			t.Error("database probe must have a two-second deadline")
 		}
 		return databaseErr
-	}), logger)
+	}), logger, nil)
 
 	for _, tc := range []struct {
 		name   string
@@ -72,7 +72,7 @@ func TestHealthHonorsRequestCancellation(t *testing.T) {
 	router := NewRouter(pingFunc(func(ctx context.Context) error {
 		<-ctx.Done()
 		return ctx.Err()
-	}), logger)
+	}), logger, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	response := httptest.NewRecorder()
@@ -87,7 +87,7 @@ func TestRouterRejectsUnknownRoutesAndMethods(t *testing.T) {
 	router := NewRouter(pingFunc(func(context.Context) error {
 		t.Fatal("unexpected database probe")
 		return nil
-	}), logger)
+	}), logger, nil)
 	for _, tc := range []struct {
 		method string
 		path   string
@@ -113,7 +113,7 @@ func TestRouterRejectsUnknownRoutesAndMethods(t *testing.T) {
 
 func TestHealthLogsEncodingFailure(t *testing.T) {
 	logger, logs := newTestLogger()
-	router := NewRouter(pingFunc(func(context.Context) error { return nil }), logger)
+	router := NewRouter(pingFunc(func(context.Context) error { return nil }), logger, nil)
 	response := &failingResponseWriter{ResponseRecorder: httptest.NewRecorder(), err: errors.New("connection reset")}
 	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/health", nil))
 	entries := readLogEntries(t, logs)
